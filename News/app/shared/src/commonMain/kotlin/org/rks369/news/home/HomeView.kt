@@ -15,57 +15,69 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import org.rks369.news.asyncSnapshotBuilder.AsyncSnapshotBuilder
+import org.rks369.news.home.data.Article
+import org.rks369.news.home.data.Section
 
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(
-    homeViewModal: HomeViewModal = viewModel() { HomeViewModal ()}
+    homeViewModel: HomeViewModel = viewModel { HomeViewModel()}
 ) {
 
+    val selectedSection by homeViewModel.selectedSection.collectAsState()
+    val articlesSnapshot by homeViewModel.articlesSnapshot.collectAsState()
 
     Scaffold {
 
-        if (homeViewModal.canShowSelection.value) {
+        if (homeViewModel.canShowSelection.value) {
             SelectionBottomSheet(
-                sections = homeViewModal.sectionsAvailable,
-                selectedSection = homeViewModal.selectedSection.value,
+                sections = homeViewModel.sectionsAvailable,
+                selectedSection = selectedSection,
                 onClose = {
-                    homeViewModal.closeSelection()
+                    homeViewModel.closeSelection()
                 },
                 onConfirm = { selected ->
-                    homeViewModal.updateSelectedSection(selected)
+                    homeViewModel.updateSelectedSection(selected)
                 }
             )
         }
 
         Column {
             Text(
-                homeViewModal.heading
+                homeViewModel.heading
             )
             Button(
                 onClick = {
-                    homeViewModal.openSelection()
+                    homeViewModel.openSelection()
                 }
             ) {
                 Text(
-                    homeViewModal.selectedSection.value?.title ?: "Select Section",
+                    selectedSection?.title ?: "Select Section",
                 )
             }
 
-
+            AsyncSnapshotBuilder(
+                snapshot = articlesSnapshot,
+                onRetry = { homeViewModel.retry() },
+                idle = { Text("Select a section to load news") }
+            ) { articles: List<Article> ->
+                LazyColumn {
+                    items(articles) { article ->
+                        Text(article.title, modifier = Modifier.padding(16.dp))
+                    }
+                }
+            }
         }
 
     }
-}
-
-@Composable
-fun FutureCompose() {
-
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

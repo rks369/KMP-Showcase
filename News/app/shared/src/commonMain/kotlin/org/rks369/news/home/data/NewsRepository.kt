@@ -1,32 +1,21 @@
-package org.rks369.news.home
+package org.rks369.news.home.data
 
-import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import kotlinx.serialization.json.Json
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
 
-class HomeViewModal : ViewModel() {
-    val heading : String = "News"
 
-    val sectionsAvailable: List<Section> = getSectionsAvailableForNewYorkNews()
-    private val _selectedSection = MutableStateFlow<Section?>(null)
-    val selectedSection: StateFlow<Section?> = _selectedSection.asStateFlow()
-
-    fun updateSelectedSection(section: Section?) {
-        _selectedSection.value = section   // or however you're holding selected state
-    }
-
-    private var _selectionSheetState = mutableStateOf(false)
-    var canShowSelection = _selectionSheetState
-    fun closeSelection() {
-        _selectionSheetState.value = false
-    }
-    fun openSelection() {
-        _selectionSheetState.value = true
-    }
-
-    private  fun getSectionsAvailableForNewYorkNews(): List<Section> = listOf(
+class NewsRepository(
+    private val httpClient: HttpClient = HttpClient() {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    },
+) {
+    fun sections(): List<Section> = listOf(
         Section(key = "arts", title = "Arts"),
         Section(key = "automobiles", title = "Automobiles"),
         Section(key = "books/review", title = "Books/Review"),
@@ -55,12 +44,13 @@ class HomeViewModal : ViewModel() {
         Section(key = "world", title = "World"),
     )
 
+    suspend fun getArticles(
+        sectionKey: String?
+    ): List<Article> {
+        if (sectionKey == null) return emptyList()
+        return httpClient.get("https://api.nytimes.com/svc/topstories/v2/$sectionKey.json?api-key=CphjYn6c4g05aLKbGFdSbvOGqO4hlN09hC8Uu5cEJgyNlnxQ") {
+
+        }.body<TopStoriesResponse>().results
+    }
+
 }
-
-data class Section(
-    val key: String?,
-    val title: String?,
-    val description: String? = null,
-    var isActive: Boolean = false
-)
-
