@@ -6,6 +6,7 @@ import io.ktor.client.request.get
 import kotlinx.serialization.json.Json
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
+import org.rks369.news.secrets.Secrets
 
 
 class NewsRepository(
@@ -48,7 +49,7 @@ class NewsRepository(
         sectionKey: String?
     ): List<Article> {
         if (sectionKey == null) return emptyList()
-        return httpClient.get("https://api.nytimes.com/svc/topstories/v2/$sectionKey.json?api-key=CphjYn6c4g05aLKbGFdSbvOGqO4hlN09hC8Uu5cEJgyNlnxQ") {
+        return httpClient.get("https://api.nytimes.com/svc/topstories/v2/$sectionKey.json?api-key=${Secrets.NYT_API_KEY}") {
 
         }.body<TopStoriesResponse>().results
     }

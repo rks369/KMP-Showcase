@@ -1,6 +1,5 @@
 package org.rks369.news.home
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +15,7 @@ import org.rks369.news.home.data.Section
 class HomeViewModel(
     private val newsRepository: NewsRepository = NewsRepository()
 ) : ViewModel() {
-    val heading : String = "News"
+    val heading : String = "Top Stories"
 
     val sectionsAvailable: List<Section> = newsRepository.sections()
     private val _selectedSection = MutableStateFlow<Section?>(null)
@@ -25,15 +24,6 @@ class HomeViewModel(
     fun updateSelectedSection(section: Section?) {
         _selectedSection.value = section
         loadArticles(sectionKey = section?.key)
-    }
-
-    private var _selectionSheetState = mutableStateOf(false)
-    var canShowSelection = _selectionSheetState
-    fun closeSelection() {
-        _selectionSheetState.value = false
-    }
-    fun openSelection() {
-        _selectionSheetState.value = true
     }
 
     private val _articlesSnapshot: MutableStateFlow<AsyncSnapshot<List<Article>>> = MutableStateFlow(AsyncSnapshot.Idle)

@@ -1,10 +1,16 @@
 package org.rks369.news.asyncSnapshotBuilder
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 
 sealed interface AsyncSnapshot<out T> {
@@ -17,22 +23,30 @@ sealed interface AsyncSnapshot<out T> {
 @Composable
 fun <T> AsyncSnapshotBuilder(
     snapshot: AsyncSnapshot<T>,
+    modifier: Modifier = Modifier,
     onRetry: () -> Unit = {},
     idle: @Composable () -> Unit = {},
     loading: @Composable () -> Unit = { CircularProgressIndicator() },
     error: @Composable (String) -> Unit = { message ->
-        Column {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Error: $message")
             Button(onClick = onRetry) { Text("Retry") }
         }
     },
     success: @Composable (T) -> Unit
 ) {
-    when (snapshot) {
-        is AsyncSnapshot.Idle -> idle()
-        is AsyncSnapshot.Loading -> loading()
-        is AsyncSnapshot.Error -> error(snapshot.message)
-        is AsyncSnapshot.Success -> success(snapshot.data)
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .defaultMinSize(minHeight = 400.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when (snapshot) {
+            is AsyncSnapshot.Idle -> idle()
+            is AsyncSnapshot.Loading -> loading()
+            is AsyncSnapshot.Error -> error(snapshot.message)
+            is AsyncSnapshot.Success -> success(snapshot.data)
+        }
     }
 }
 
