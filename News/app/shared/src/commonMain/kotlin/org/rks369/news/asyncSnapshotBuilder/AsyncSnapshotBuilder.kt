@@ -12,12 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.rks369.news.AppException
+import org.rks369.news.toAppException
 
 sealed interface AsyncSnapshot<out T> {
     data object Idle : AsyncSnapshot<Nothing>
     data object Loading : AsyncSnapshot<Nothing>
     data class Success<T>(val data: T) : AsyncSnapshot<T>
-    data class Error(val message: String) : AsyncSnapshot<Nothing>
+    data class Error(val error: AppException) : AsyncSnapshot<Nothing>
 }
 
 @Composable
@@ -27,9 +29,12 @@ fun <T> AsyncSnapshotBuilder(
     onRetry: () -> Unit = {},
     idle: @Composable () -> Unit = {},
     loading: @Composable () -> Unit = { CircularProgressIndicator() },
-    error: @Composable (String) -> Unit = { message ->
+    error: @Composable (AppException) -> Unit = { appException ->
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Error: $message")
+            Text(appException.title)
+            appException.description?.let { description ->
+                Text(description)
+            }
             Button(onClick = onRetry) { Text("Retry") }
         }
     },
@@ -44,7 +49,7 @@ fun <T> AsyncSnapshotBuilder(
         when (snapshot) {
             is AsyncSnapshot.Idle -> idle()
             is AsyncSnapshot.Loading -> loading()
-            is AsyncSnapshot.Error -> error(snapshot.message)
+            is AsyncSnapshot.Error -> error(snapshot.error)
             is AsyncSnapshot.Success -> success(snapshot.data)
         }
     }
@@ -57,6 +62,6 @@ suspend fun <T> MutableStateFlow<AsyncSnapshot<T>>.load(
     value = try {
         AsyncSnapshot.Success(block())
     } catch (e: Exception) {
-        AsyncSnapshot.Error(e.message ?: "Something went wrong")
+        AsyncSnapshot.Error(e.toAppException())
     }
 }
