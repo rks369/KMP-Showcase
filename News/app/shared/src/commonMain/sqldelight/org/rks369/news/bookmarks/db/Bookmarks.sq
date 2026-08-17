@@ -1,0 +1,21 @@
+CREATE TABLE BookmarkEntity (
+    url TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    summary TEXT,
+    thumbnailUrl TEXT,
+    section TEXT,
+    publishedDate TEXT
+);
+
+selectAll:
+SELECT * FROM BookmarkEntity ORDER BY rowid DESC;
+
+selectByUrl:
+SELECT * FROM BookmarkEntity WHERE url = ?;
+
+insertOrReplace:
+INSERT OR REPLACE INTO BookmarkEntity(url, title, summary, thumbnailUrl, section, publishedDate)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteByUrl:
+DELETE FROM BookmarkEntity WHERE url = ?;

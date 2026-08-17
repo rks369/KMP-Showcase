@@ -19,12 +19,17 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -53,6 +58,7 @@ import org.rks369.news.asyncSnapshotBuilder.AsyncSnapshotBuilder
 import org.rks369.news.home.data.Article
 import org.rks369.news.home.data.Section
 import org.rks369.news.settings.ThemeMode
+import org.rks369.news.util.formatPublishedDate
 
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
@@ -65,6 +71,7 @@ fun HomeView(
 
     val selectedSection by homeViewModel.selectedSection.collectAsState()
     val articlesSnapshot by homeViewModel.articlesSnapshot.collectAsState()
+    val bookmarkedUrls by homeViewModel.bookmarkedUrls.collectAsState()
 
     Scaffold {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -135,7 +142,15 @@ fun HomeView(
                         verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         items(articles) { article ->
-                            ArticleListItem(article = article)
+                            ArticleListItem(
+                                title = article.title,
+                                abstract = article.abstract,
+                                thumbnailUrl = article.thumbnailUrl,
+                                section = article.section,
+                                publishedDate = article.publishedDate,
+                                isBookmarked = article.url != null && article.url in bookmarkedUrls,
+                                onToggleBookmark = { homeViewModel.toggleBookmark(article) }
+                            )
                         }
                     }
                 }
@@ -226,7 +241,13 @@ fun SectionTabs(
 
 @Composable
 fun ArticleListItem(
-    article: Article,
+    title: String,
+    abstract: String?,
+    thumbnailUrl: String?,
+    section: String?,
+    publishedDate: String?,
+    isBookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -242,8 +263,8 @@ fun ArticleListItem(
                     .height(192.dp)
             ) {
                 AsyncImage(
-                    model = article.thumbnailUrl,
-                    contentDescription = article.title,
+                    model = thumbnailUrl,
+                    contentDescription = title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
@@ -260,7 +281,7 @@ fun ArticleListItem(
                         )
                 )
 
-                article.section?.takeIf { it.isNotBlank() }?.let { section ->
+                section?.takeIf { it.isNotBlank() }?.let { sectionName ->
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
@@ -269,28 +290,39 @@ fun ArticleListItem(
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = section.uppercase(),
+                            text = sectionName.uppercase(),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.Black,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
+
+                IconButton(
+                    onClick = onToggleBookmark,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    Icon(
+                        imageVector = if (isBookmarked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isBookmarked) "Remove bookmark" else "Add bookmark",
+                        tint = Color.White
+                    )
+                }
             }
 
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = article.title,
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                article.abstract?.let { abstract ->
+                abstract?.let { abstractText ->
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = abstract,
+                        text = abstractText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -298,39 +330,16 @@ fun ArticleListItem(
                     )
                 }
 
-                formatPublishedDate(article.publishedDate)?.let { publishedDate ->
+                formatPublishedDate(publishedDate)?.let { formattedDate ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = publishedDate,
+                        text = formattedDate,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
         }
-    }
-}
-
-private val MONTH_NAMES = listOf(
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-)
-
-private fun formatPublishedDate(publishedDate: String?): String? {
-    if (publishedDate.isNullOrBlank()) return null
-    return try {
-        val (year, month, day) = publishedDate.substringBefore("T").split("-")
-        val (hourStr, minuteStr) = publishedDate.substringAfter("T").split(":")
-        val hour24 = hourStr.toInt()
-        val amPm = if (hour24 >= 12) "PM" else "AM"
-        val hour12 = when {
-            hour24 == 0 -> 12
-            hour24 > 12 -> hour24 - 12
-            else -> hour24
-        }
-        val monthName = MONTH_NAMES.getOrElse(month.toInt() - 1) { month }
-        "$monthName $day, $year · ${hour12.toString().padStart(2, '0')}:$minuteStr $amPm"
-    } catch (_: Exception) {
-        publishedDate
     }
 }
 
