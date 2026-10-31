@@ -1,11 +1,44 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.serialization)
+    alias(libs.plugins.sqldelight)
+}
+
+// Secrets are read from local.properties (gitignored) or an env var for CI,
+// never hardcoded in tracked source. See local.properties.example.
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+val nytApiKey: String =
+    (localProperties.getProperty("NYT_API_KEY") ?: System.getenv("NYT_API_KEY") ?: "")
+        .also {
+            if (it.isBlank()) {
+                logger.warn("NYT_API_KEY is not set. Add it to local.properties (see local.properties.example) or set the NYT_API_KEY environment variable.")
+            }
+        }
+
+val generatedSecretsDir = layout.buildDirectory.dir("generated/secrets").get().asFile
+generatedSecretsDir.resolve("org/rks369/news/secrets").apply {
+    mkdirs()
+    resolve("Secrets.kt").writeText(
+        """
+        package org.rks369.news.secrets
+
+        internal object Secrets {
+            const val NYT_API_KEY: String = "$nytApiKey"
+        }
+        """.trimIndent()
+    )
 }
 
 kotlin {
@@ -52,9 +85,8 @@ kotlin {
     }
     
     sourceSets {
-        androidMain.dependencies {
-            implementation(libs.compose.uiToolingPreview)
-            implementation(libs.compose.uiTooling)
+        commonMain.configure {
+            kotlin.srcDir(generatedSecretsDir)
         }
         commonMain.dependencies {
             api(project(":core"))
@@ -66,12 +98,82 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor3)
+            implementation(libs.compose.materialIconsCore)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines.extensions)
+            implementation(libs.kotlinx.datetime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+
+        // multiplatform-settings-no-arg publishes for android/ios/jvm/js but not wasmJs.
+        // Rather than restructuring the default source set hierarchy, each of those four
+        // source sets just also compiles the one shared KeyValueStore.kt file directly.
+        val settingsSharedDir = "src/settingsShared/kotlin"
+
+        // SQLDelight driver artifacts only publish for android/ios/jvm. js/wasmJs share an
+        // in-memory BookmarkRepository actual instead (see bookmarksInMemoryDir below).
+        val bookmarksSqlDir = "src/bookmarksSql/kotlin"
+        val bookmarksInMemoryDir = "src/bookmarksInMemory/kotlin"
+
+        androidMain.configure {
+            kotlin.srcDir(settingsSharedDir)
+            kotlin.srcDir(bookmarksSqlDir)
+        }
+        androidMain.dependencies {
+            implementation(libs.compose.uiToolingPreview)
+            implementation(libs.compose.uiTooling)
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.multiplatform.settings.no.arg)
+            implementation(libs.sqldelight.android.driver)
+        }
+
+        iosMain.configure {
+            kotlin.srcDir(settingsSharedDir)
+            kotlin.srcDir(bookmarksSqlDir)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+            implementation(libs.multiplatform.settings.no.arg)
+            implementation(libs.sqldelight.native.driver)
+        }
+
+        jvmMain.configure {
+            kotlin.srcDir(settingsSharedDir)
+            kotlin.srcDir(bookmarksSqlDir)
+        }
+        jvmMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.multiplatform.settings.no.arg)
+            implementation(libs.sqldelight.sqlite.driver)
+        }
+
+        jsMain.configure {
+            kotlin.srcDir(settingsSharedDir)
+            kotlin.srcDir(bookmarksInMemoryDir)
+        }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
+            implementation(libs.multiplatform.settings.no.arg)
+        }
+
+        wasmJsMain.configure {
+            kotlin.srcDir(bookmarksInMemoryDir)
+        }
+    }
+}
+
+sqldelight {
+    databases {
+        create("BookmarksDatabase") {
+            packageName.set("org.rks369.news.bookmarks.db")
         }
     }
 }

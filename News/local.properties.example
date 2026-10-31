@@ -1,0 +1,8 @@
+# Copy this file to local.properties (gitignored) and fill in real values.
+# local.properties is never committed - see .gitignore.
+
+sdk.dir=/path/to/Android/sdk
+
+# NYT Top Stories API key - https://developer.nytimes.com/
+# Also settable as an NYT_API_KEY environment variable (used by CI).
+NYT_API_KEY=your_key_here
